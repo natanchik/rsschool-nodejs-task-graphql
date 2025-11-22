@@ -44,7 +44,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         result = { errors: [{ message: String(error) }] };
       }
 
-      return result;
+      return result as { data?: unknown; errors?: unknown };
     },
   });
 };

@@ -18,9 +18,9 @@ import { DataLoaders } from './dataloaders.js';
 type ResolverContext = {
   prisma: PrismaClient;
   dataloaders: DataLoaders;
-  [key: string]: any;
+  [key: string]: unknown;
 };
-type ResolverParent = any;
+type ResolverParent = Record<string, unknown>;
 
 export const UUIDType = new GraphQLScalarType({
   name: 'UUID',
@@ -85,7 +85,7 @@ export const ProfileType: GraphQLObjectType<ResolverParent, ResolverContext> =
       memberType: {
         type: new GraphQLNonNull(MemberTypeType),
         resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
-          return dataloaders.memberTypeLoader.load(parent.memberTypeId);
+          return dataloaders.memberTypeLoader.load(String(parent.memberTypeId));
         },
       },
     }),
@@ -101,31 +101,31 @@ export const UserType: GraphQLObjectType<ResolverParent, ResolverContext> =
       profile: {
         type: ProfileType,
         resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
-          return dataloaders.profileLoader.load(parent.id);
+          return dataloaders.profileLoader.load(String(parent.id));
         },
       },
       posts: {
         type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(PostType))),
         resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
-          return dataloaders.postsLoader.load(parent.id);
+          return dataloaders.postsLoader.load(String(parent.id));
         },
       },
       userSubscribedTo: {
         type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(UserType))),
         resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
           if (parent._userSubscribedTo) {
-            return parent._userSubscribedTo;
+            return parent._userSubscribedTo as unknown[];
           }
-          return dataloaders.userSubscribedToLoader.load(parent.id);
+          return dataloaders.userSubscribedToLoader.load(String(parent.id));
         },
       },
       subscribedToUser: {
         type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(UserType))),
         resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
           if (parent._subscribedToUser) {
-            return parent._subscribedToUser;
+            return parent._subscribedToUser as unknown[];
           }
-          return dataloaders.subscribedToUserLoader.load(parent.id);
+          return dataloaders.subscribedToUserLoader.load(String(parent.id));
         },
       },
     }),

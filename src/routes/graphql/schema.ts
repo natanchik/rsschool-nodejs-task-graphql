@@ -48,12 +48,12 @@ const QueryType = new GraphQLObjectType({
       resolve: async (
         _,
         __,
-        { prisma, dataloaders }: { prisma: PrismaClient; dataloaders: DataLoaders },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
         info: GraphQLResolveInfo,
       ) => {
         const requestedRelations = getRequestedRelations(info);
 
-        const includeObj: any = {};
+        const includeObj: Record<string, boolean> = {};
         if (requestedRelations.userSubscribedTo) {
           includeObj.userSubscribedTo = true;
         }
@@ -62,25 +62,33 @@ const QueryType = new GraphQLObjectType({
         }
 
         const users = await prisma.user.findMany(
-          Object.keys(includeObj).length > 0 ? { include: includeObj } : undefined,
+          Object.keys(includeObj).length > 0
+            ? { include: includeObj as Record<string, unknown> }
+            : undefined,
         );
 
         if (requestedRelations.userSubscribedTo || requestedRelations.subscribedToUser) {
           users.forEach((user) => {
-            const userData = user as any;
+            const userData = user as Record<string, unknown>;
             if (requestedRelations.userSubscribedTo && userData.userSubscribedTo) {
-              userData._userSubscribedTo = userData.userSubscribedTo.map(
-                (sub: { authorId: string; subscriberId: string }) => ({
-                  id: sub.authorId,
-                }),
-              );
+              userData._userSubscribedTo = (
+                userData.userSubscribedTo as Array<{
+                  authorId: string;
+                  subscriberId: string;
+                }>
+              ).map((sub) => ({
+                id: sub.authorId,
+              }));
             }
             if (requestedRelations.subscribedToUser && userData.subscribedToUser) {
-              userData._subscribedToUser = userData.subscribedToUser.map(
-                (sub: { subscriberId: string; authorId: string }) => ({
-                  id: sub.subscriberId,
-                }),
-              );
+              userData._subscribedToUser = (
+                userData.subscribedToUser as Array<{
+                  subscriberId: string;
+                  authorId: string;
+                }>
+              ).map((sub) => ({
+                id: sub.subscriberId,
+              }));
             }
           });
         }
