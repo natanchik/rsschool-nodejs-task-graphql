@@ -79,17 +79,13 @@ export function createDataLoaders(prisma: PrismaClient): DataLoaders {
 
   const userSubscribedToLoader = new DataLoader<string, User[]>(
     async (userIds: readonly string[]) => {
-      // Get all subscriptions where these users are subscribers
-      // This gives us the users that these subscribers are subscribed to
       const subscriptions = await prisma.subscribersOnAuthors.findMany({
         where: {
           subscriberId: { in: userIds as string[] },
         },
       });
 
-      // Get all author IDs
       const authorIds = subscriptions.map((sub) => sub.authorId);
-      // Fetch all author users
       const users = await prisma.user.findMany({
         where: {
           id: { in: authorIds },
@@ -122,17 +118,13 @@ export function createDataLoaders(prisma: PrismaClient): DataLoaders {
 
   const subscribedToUserLoader = new DataLoader<string, User[]>(
     async (userIds: readonly string[]) => {
-      // Get all subscriptions where these users are authors
-      // This gives us the users that are subscribed to these authors
       const subscriptions = await prisma.subscribersOnAuthors.findMany({
         where: {
           authorId: { in: userIds as string[] },
         },
       });
 
-      // Get all subscriber IDs
       const subscriberIds = subscriptions.map((sub) => sub.subscriberId);
-      // Fetch all subscriber users
       const users = await prisma.user.findMany({
         where: {
           id: { in: subscriberIds },

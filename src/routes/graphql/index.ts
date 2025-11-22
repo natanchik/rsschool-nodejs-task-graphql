@@ -44,7 +44,6 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         result = { errors: [{ message: String(error) }] };
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result;
     },
   });

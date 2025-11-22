@@ -13,10 +13,7 @@ export function getRequestedRelations(info: GraphQLResolveInfo): RequestedRelati
     const parsed = parseResolveInfo(info);
     if (!parsed) return {};
 
-    // The parsed result has fieldsByTypeName structure
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parsed_any = parsed as any;
-    // Get the User type fields
     const userFields = parsed_any.fieldsByTypeName?.User || {};
 
     return {

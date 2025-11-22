@@ -51,11 +51,8 @@ const QueryType = new GraphQLObjectType({
         { prisma, dataloaders }: { prisma: PrismaClient; dataloaders: DataLoaders },
         info: GraphQLResolveInfo,
       ) => {
-        // Parse the GraphQLResolveInfo to determine what relations are requested
         const requestedRelations = getRequestedRelations(info);
 
-        // Build the include object based on requested relations
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const includeObj: any = {};
         if (requestedRelations.userSubscribedTo) {
           includeObj.userSubscribedTo = true;
@@ -64,15 +61,12 @@ const QueryType = new GraphQLObjectType({
           includeObj.subscribedToUser = true;
         }
 
-        // Fetch users with the appropriate includes
         const users = await prisma.user.findMany(
           Object.keys(includeObj).length > 0 ? { include: includeObj } : undefined,
         );
 
-        // If we fetched relations, transform them to include user data for direct field access
         if (requestedRelations.userSubscribedTo || requestedRelations.subscribedToUser) {
           users.forEach((user) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const userData = user as any;
             if (requestedRelations.userSubscribedTo && userData.userSubscribedTo) {
               userData._userSubscribedTo = userData.userSubscribedTo.map(

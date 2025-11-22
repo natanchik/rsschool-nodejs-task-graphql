@@ -15,16 +15,13 @@ import {
 import { PrismaClient } from '@prisma/client';
 import { DataLoaders } from './dataloaders.js';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ResolverContext = {
   prisma: PrismaClient;
   dataloaders: DataLoaders;
   [key: string]: any;
 };
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ResolverParent = any;
 
-// Custom UUID Scalar Type
 export const UUIDType = new GraphQLScalarType({
   name: 'UUID',
   description: 'UUID scalar type',
@@ -50,7 +47,6 @@ export const UUIDType = new GraphQLScalarType({
   },
 });
 
-// Member Type Enum
 export const MemberTypeIdEnum = new GraphQLEnumType({
   name: 'MemberTypeId',
   values: {
@@ -59,7 +55,6 @@ export const MemberTypeIdEnum = new GraphQLEnumType({
   },
 });
 
-// MemberType Output Type
 export const MemberTypeType: GraphQLObjectType<ResolverParent, ResolverContext> =
   new GraphQLObjectType({
     name: 'MemberType',
@@ -70,7 +65,6 @@ export const MemberTypeType: GraphQLObjectType<ResolverParent, ResolverContext> 
     }),
   });
 
-// Post Output Type
 export const PostType: GraphQLObjectType<ResolverParent, ResolverContext> =
   new GraphQLObjectType({
     name: 'Post',
@@ -81,7 +75,6 @@ export const PostType: GraphQLObjectType<ResolverParent, ResolverContext> =
     }),
   });
 
-// Profile Output Type
 export const ProfileType: GraphQLObjectType<ResolverParent, ResolverContext> =
   new GraphQLObjectType({
     name: 'Profile',
@@ -91,16 +84,13 @@ export const ProfileType: GraphQLObjectType<ResolverParent, ResolverContext> =
       yearOfBirth: { type: new GraphQLNonNull(GraphQLInt) },
       memberType: {
         type: new GraphQLNonNull(MemberTypeType),
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
         resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           return dataloaders.memberTypeLoader.load(parent.memberTypeId);
         },
       },
     }),
   });
 
-// User Output Type
 export const UserType: GraphQLObjectType<ResolverParent, ResolverContext> =
   new GraphQLObjectType({
     name: 'User',
@@ -110,54 +100,37 @@ export const UserType: GraphQLObjectType<ResolverParent, ResolverContext> =
       balance: { type: new GraphQLNonNull(GraphQLFloat) },
       profile: {
         type: ProfileType,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
         resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           return dataloaders.profileLoader.load(parent.id);
         },
       },
       posts: {
         type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(PostType))),
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
         resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           return dataloaders.postsLoader.load(parent.id);
         },
       },
       userSubscribedTo: {
         type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(UserType))),
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
         resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
-          // If data is already pre-fetched and cached, return it
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           if (parent._userSubscribedTo) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
             return parent._userSubscribedTo;
           }
-          // Otherwise use dataloader
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           return dataloaders.userSubscribedToLoader.load(parent.id);
         },
       },
       subscribedToUser: {
         type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(UserType))),
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
         resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
-          // If data is already pre-fetched and cached, return it
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           if (parent._subscribedToUser) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
             return parent._subscribedToUser;
           }
-          // Otherwise use dataloader
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           return dataloaders.subscribedToUserLoader.load(parent.id);
         },
       },
     }),
   });
 
-// Input Types
 export const CreateUserInputType = new GraphQLInputObjectType({
   name: 'CreateUserInput',
   fields: () => ({
