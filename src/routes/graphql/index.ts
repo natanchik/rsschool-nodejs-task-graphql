@@ -20,7 +20,7 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     async handler(req) {
       const { query, variables } = req.body;
 
-      const validationRules = [depthLimit(10)];
+      const validationRules = [depthLimit(5)];
 
       let result;
       try {
