@@ -4,6 +4,7 @@ import {
   GraphQLNonNull,
   GraphQLList,
   GraphQLString,
+  GraphQLResolveInfo,
 } from 'graphql';
 import { PrismaClient } from '@prisma/client';
 import {
@@ -20,13 +21,15 @@ import {
   CreatePostInputType,
   ChangePostInputType,
 } from './types.js';
+import { DataLoaders } from './dataloaders.js';
+import { getRequestedRelations } from './resolve-info.js';
 
 const QueryType = new GraphQLObjectType({
   name: 'RootQueryType',
   fields: () => ({
     memberTypes: {
       type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(MemberTypeType))),
-      resolve: (_, __, { prisma }: { prisma: PrismaClient }) =>
+      resolve: (_, __, { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders }) =>
         prisma.memberType.findMany(),
     },
     memberType: {
@@ -34,44 +37,105 @@ const QueryType = new GraphQLObjectType({
       args: {
         id: { type: new GraphQLNonNull(MemberTypeIdEnum) },
       },
-      resolve: (_, args: { id: string }, { prisma }: { prisma: PrismaClient }) =>
-        prisma.memberType.findUnique({ where: { id: args.id } }),
+      resolve: (
+        _,
+        args: { id: string },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
+      ) => prisma.memberType.findUnique({ where: { id: args.id } }),
     },
     users: {
       type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(UserType))),
-      resolve: (_, __, { prisma }: { prisma: PrismaClient }) => prisma.user.findMany(),
+      resolve: async (
+        _,
+        __,
+        { prisma, dataloaders }: { prisma: PrismaClient; dataloaders: DataLoaders },
+        info: GraphQLResolveInfo,
+      ) => {
+        // Parse the GraphQLResolveInfo to determine what relations are requested
+        const requestedRelations = getRequestedRelations(info);
+
+        // Build the include object based on requested relations
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const includeObj: any = {};
+        if (requestedRelations.userSubscribedTo) {
+          includeObj.userSubscribedTo = true;
+        }
+        if (requestedRelations.subscribedToUser) {
+          includeObj.subscribedToUser = true;
+        }
+
+        // Fetch users with the appropriate includes
+        const users = await prisma.user.findMany(
+          Object.keys(includeObj).length > 0 ? { include: includeObj } : undefined,
+        );
+
+        // If we fetched relations, transform them to include user data for direct field access
+        if (requestedRelations.userSubscribedTo || requestedRelations.subscribedToUser) {
+          users.forEach((user) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const userData = user as any;
+            if (requestedRelations.userSubscribedTo && userData.userSubscribedTo) {
+              userData._userSubscribedTo = userData.userSubscribedTo.map(
+                (sub: { authorId: string; subscriberId: string }) => ({
+                  id: sub.authorId,
+                }),
+              );
+            }
+            if (requestedRelations.subscribedToUser && userData.subscribedToUser) {
+              userData._subscribedToUser = userData.subscribedToUser.map(
+                (sub: { subscriberId: string; authorId: string }) => ({
+                  id: sub.subscriberId,
+                }),
+              );
+            }
+          });
+        }
+
+        return users;
+      },
     },
     user: {
       type: UserType,
       args: {
         id: { type: new GraphQLNonNull(UUIDType) },
       },
-      resolve: (_, args: { id: string }, { prisma }: { prisma: PrismaClient }) =>
-        prisma.user.findUnique({ where: { id: args.id } }),
+      resolve: (
+        _,
+        args: { id: string },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
+      ) => prisma.user.findUnique({ where: { id: args.id } }),
     },
     posts: {
       type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(PostType))),
-      resolve: (_, __, { prisma }: { prisma: PrismaClient }) => prisma.post.findMany(),
+      resolve: (_, __, { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders }) =>
+        prisma.post.findMany(),
     },
     post: {
       type: PostType,
       args: {
         id: { type: new GraphQLNonNull(UUIDType) },
       },
-      resolve: (_, args: { id: string }, { prisma }: { prisma: PrismaClient }) =>
-        prisma.post.findUnique({ where: { id: args.id } }),
+      resolve: (
+        _,
+        args: { id: string },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
+      ) => prisma.post.findUnique({ where: { id: args.id } }),
     },
     profiles: {
       type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(ProfileType))),
-      resolve: (_, __, { prisma }: { prisma: PrismaClient }) => prisma.profile.findMany(),
+      resolve: (_, __, { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders }) =>
+        prisma.profile.findMany(),
     },
     profile: {
       type: ProfileType,
       args: {
         id: { type: new GraphQLNonNull(UUIDType) },
       },
-      resolve: (_, args: { id: string }, { prisma }: { prisma: PrismaClient }) =>
-        prisma.profile.findUnique({ where: { id: args.id } }),
+      resolve: (
+        _,
+        args: { id: string },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
+      ) => prisma.profile.findUnique({ where: { id: args.id } }),
     },
   }),
 });
@@ -87,7 +151,7 @@ const MutationType = new GraphQLObjectType({
       resolve: (
         _,
         args: { dto: { name: string; balance: number } },
-        { prisma }: { prisma: PrismaClient },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
       ) =>
         prisma.user.create({
           data: args.dto,
@@ -108,7 +172,7 @@ const MutationType = new GraphQLObjectType({
             memberTypeId: string;
           };
         },
-        { prisma }: { prisma: PrismaClient },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
       ) =>
         prisma.profile.create({
           data: args.dto,
@@ -128,7 +192,7 @@ const MutationType = new GraphQLObjectType({
             authorId: string;
           };
         },
-        { prisma }: { prisma: PrismaClient },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
       ) =>
         prisma.post.create({
           data: args.dto,
@@ -149,7 +213,7 @@ const MutationType = new GraphQLObjectType({
             content?: string;
           };
         },
-        { prisma }: { prisma: PrismaClient },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
       ) =>
         prisma.post.update({
           where: { id: args.id },
@@ -172,7 +236,7 @@ const MutationType = new GraphQLObjectType({
             memberTypeId?: string;
           };
         },
-        { prisma }: { prisma: PrismaClient },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
       ) =>
         prisma.profile.update({
           where: { id: args.id },
@@ -194,7 +258,7 @@ const MutationType = new GraphQLObjectType({
             balance?: number;
           };
         },
-        { prisma }: { prisma: PrismaClient },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
       ) =>
         prisma.user.update({
           where: { id: args.id },
@@ -206,24 +270,33 @@ const MutationType = new GraphQLObjectType({
       args: {
         id: { type: new GraphQLNonNull(UUIDType) },
       },
-      resolve: (_, args: { id: string }, { prisma }: { prisma: PrismaClient }) =>
-        prisma.user.delete({ where: { id: args.id } }).then(() => 'deleted'),
+      resolve: (
+        _,
+        args: { id: string },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
+      ) => prisma.user.delete({ where: { id: args.id } }).then(() => 'deleted'),
     },
     deletePost: {
       type: new GraphQLNonNull(GraphQLString),
       args: {
         id: { type: new GraphQLNonNull(UUIDType) },
       },
-      resolve: (_, args: { id: string }, { prisma }: { prisma: PrismaClient }) =>
-        prisma.post.delete({ where: { id: args.id } }).then(() => 'deleted'),
+      resolve: (
+        _,
+        args: { id: string },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
+      ) => prisma.post.delete({ where: { id: args.id } }).then(() => 'deleted'),
     },
     deleteProfile: {
       type: new GraphQLNonNull(GraphQLString),
       args: {
         id: { type: new GraphQLNonNull(UUIDType) },
       },
-      resolve: (_, args: { id: string }, { prisma }: { prisma: PrismaClient }) =>
-        prisma.profile.delete({ where: { id: args.id } }).then(() => 'deleted'),
+      resolve: (
+        _,
+        args: { id: string },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
+      ) => prisma.profile.delete({ where: { id: args.id } }).then(() => 'deleted'),
     },
     subscribeTo: {
       type: new GraphQLNonNull(GraphQLString),
@@ -234,7 +307,7 @@ const MutationType = new GraphQLObjectType({
       resolve: (
         _,
         args: { userId: string; authorId: string },
-        { prisma }: { prisma: PrismaClient },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
       ) =>
         prisma.subscribersOnAuthors
           .create({
@@ -254,7 +327,7 @@ const MutationType = new GraphQLObjectType({
       resolve: (
         _,
         args: { userId: string; authorId: string },
-        { prisma }: { prisma: PrismaClient },
+        { prisma }: { prisma: PrismaClient; dataloaders: DataLoaders },
       ) =>
         prisma.subscribersOnAuthors
           .delete({

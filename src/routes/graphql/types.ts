@@ -13,9 +13,14 @@ import {
   Kind,
 } from 'graphql';
 import { PrismaClient } from '@prisma/client';
+import { DataLoaders } from './dataloaders.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ResolverContext = { prisma: PrismaClient; [key: string]: any };
+type ResolverContext = {
+  prisma: PrismaClient;
+  dataloaders: DataLoaders;
+  [key: string]: any;
+};
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ResolverParent = any;
 
@@ -87,9 +92,9 @@ export const ProfileType: GraphQLObjectType<ResolverParent, ResolverContext> =
       memberType: {
         type: new GraphQLNonNull(MemberTypeType),
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-        resolve: (parent: ResolverParent, _, { prisma }: ResolverContext) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-          return prisma.memberType.findUnique({ where: { id: parent.memberTypeId } });
+        resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          return dataloaders.memberTypeLoader.load(parent.memberTypeId);
         },
       },
     }),
@@ -106,50 +111,48 @@ export const UserType: GraphQLObjectType<ResolverParent, ResolverContext> =
       profile: {
         type: ProfileType,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-        resolve: (parent: ResolverParent, _, { prisma }: ResolverContext) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-          return prisma.profile.findUnique({ where: { userId: parent.id } });
+        resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          return dataloaders.profileLoader.load(parent.id);
         },
       },
       posts: {
         type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(PostType))),
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-        resolve: (parent: ResolverParent, _, { prisma }: ResolverContext) => {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-          return prisma.post.findMany({ where: { authorId: parent.id } });
+        resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          return dataloaders.postsLoader.load(parent.id);
         },
       },
       userSubscribedTo: {
         type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(UserType))),
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-        resolve: (parent: ResolverParent, _, { prisma }: ResolverContext) =>
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-          prisma.user.findMany({
-            where: {
-              subscribedToUser: {
-                some: {
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-                  subscriberId: parent.id,
-                },
-              },
-            },
-          }),
+        resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
+          // If data is already pre-fetched and cached, return it
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (parent._userSubscribedTo) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+            return parent._userSubscribedTo;
+          }
+          // Otherwise use dataloader
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          return dataloaders.userSubscribedToLoader.load(parent.id);
+        },
       },
       subscribedToUser: {
         type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(UserType))),
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-        resolve: (parent: ResolverParent, _, { prisma }: ResolverContext) =>
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-          prisma.user.findMany({
-            where: {
-              userSubscribedTo: {
-                some: {
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
-                  authorId: parent.id,
-                },
-              },
-            },
-          }),
+        resolve: (parent: ResolverParent, _, { dataloaders }: ResolverContext) => {
+          // If data is already pre-fetched and cached, return it
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (parent._subscribedToUser) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+            return parent._subscribedToUser;
+          }
+          // Otherwise use dataloader
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          return dataloaders.subscribedToUserLoader.load(parent.id);
+        },
       },
     }),
   });

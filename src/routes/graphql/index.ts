@@ -4,6 +4,7 @@ import { graphql, validate } from 'graphql';
 import { schema } from './schema.js';
 import depthLimit from 'graphql-depth-limit';
 import { parse } from 'graphql';
+import { createDataLoaders } from './dataloaders.js';
 
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const { prisma } = fastify;
@@ -30,11 +31,13 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
         if (errors.length > 0) {
           result = { errors };
         } else {
+          const dataloaders = createDataLoaders(prisma);
+
           result = await graphql({
             schema,
             source: query,
             variableValues: variables,
-            contextValue: { prisma },
+            contextValue: { prisma, dataloaders },
           });
         }
       } catch (error) {
